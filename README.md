@@ -28,7 +28,8 @@ To render google map on your page just use:
 #### Notes ####
  - Make sure you include jquery on before end your header tag.
  - Use necessary styling for rendered google map.
-    eg:
+
+````
     <style type="text/css">
             /* google map div */
             div#map {
@@ -36,4 +37,5 @@ To render google map on your page just use:
                 height: 300px;
             }
     </style>
+````
 
