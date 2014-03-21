@@ -1,0 +1,391 @@
+<?php
+/**
+ * Class ContactUsAndMapHelper
+ * This module will create relevant template and fields for contact us page
+ * Also includes google map location feature.
+ */
+class ContactUsAndMapHelper extends WireData implements Module, Saveable {
+
+    /**
+     * getModuleInfo is a module required by all modules to tell ProcessWire about them
+     *
+     * @return array
+     *
+     */
+    public static function getModuleInfo() {
+
+        return array(
+            'title' => 'Contact us and Google map helper',
+            'version' => 100,
+            'summary' => 'Create relevant fields and template to create contact us page',
+            'singular' => true,
+            'autoload' => true,
+            'requires' => array('InputfieldRepeater', 'FieldtypeMapMarker')
+        );
+    }
+
+    /**
+     * Save the object's current state to database.
+     *
+     */
+    public function save() { }
+
+    /**
+     * Get an array of this item's saveable data, should match exact with the table it saves in
+     *
+     */
+    public function getTableData() { }
+
+    /**
+     * Method to initialize the module.
+     *
+     * While the method is required, if you don't need it, then just leave the implementation blank.
+     *
+     * This is called after ProcessWire's API is fully ready for use and hooks. It is called at the end of the
+     * bootstrap process. This is before PW has started retrieving or rendering a page. If you need to have the
+     * API ready with the $page ready as well, then see the ready() method below this one.
+     *
+     */
+    public function init()
+    {
+        /* init stuff */
+    }
+
+    /**
+     * Install module
+     */
+    public function ___install() {
+
+        /* ======================================================================== */
+        /* Create contact us page template and fields                               */
+        /* ======================================================================== */
+
+        /* fetch the field group named `contact-index` */
+        $fg = $this->fieldgroups->get('contact-index');
+        if (!$fg->id) {
+            /* Create new field group which is going to relate to our template */
+            $fg = new Fieldgroup();
+            $fg->name = 'contact-index';
+            $fg->add($this->fields->get('title'));
+
+            /* Get headline field */
+            $headline = wire('fields')->get('headline');
+            /* If headline field defined just add it */
+            if ($headline->id) {
+                $fg->add($this->fields->get('headline'));
+            }
+
+            /* Get the body field */
+            $bodyField = wire('fields')->get('body');
+            /* If body field defined just add it */
+            if ($bodyField->id) {
+                /* if yes then add the body field into the field group */
+                $fg->add($this->fields->get('body'));
+            }
+
+            /* Get google map location title field */
+            $mapLocationTitle = wire('fields')->get('google_map_location_title');
+
+            /* If not defined then create the field and add into the field group */
+            if (!$mapLocationTitle->id) {
+                $field                  = new Field();
+                $field->type            = 'FieldtypeText';
+                $field->name            = 'google_map_location_title';
+                $field->label           = __('Google map location title');
+                $field->description     = __('Sub title of the google map, which will be display above the map');
+                $field->save();
+
+                $this->message("Field `google_map_location_title` added.");
+
+                /* add `google_map_location_title` field into the field group */
+                $fg->add($this->fields->get('google_map_location_title'));
+            }
+
+            /* Get the map field */
+            $map = wire('fields')->get('map');
+
+            if (!$map->id) {
+                $field                  = new Field();
+                $field->type            = 'FieldtypeMapMarker';
+                $field->name            = 'map';
+                $field->label           = __('Google map location');
+                $field->description     = __("Enter an address, place or location of any sort into the `Address` field.
+                Example:
+                - 125 E. Court Square, Decatur, GA 30030
+                - Atlanta, GA
+                - Disney World ");
+
+                /* Set default map type eg: Hybrid | Road map | Satellite */
+                $field->set('defaultType', 'ROADMAP');
+
+                $field->save();
+                $this->message("Field `map` added.");
+            }
+
+            /* Get map description field */
+            $mapDescription = wire('fields')->get('map_description');
+
+            if (!$mapDescription->id) {
+                $field                  = new Field();
+                $field->type            = 'FieldtypeTextarea';
+                $field->name            = 'map_description';
+                $field->label           = __('Map description');
+                $field->description     = __('Description of your map location. eg: Name of the location');
+                $field->save();
+
+                $this->message("Field `map_description` added.");
+            }
+
+            /* Get the maps field (repeater field) */
+            $maps = wire('fields')->get('maps');
+
+            if (!$maps->id) {
+
+                /* Gosh! Creating repeater field is bit difficult :( */
+                $field = $this->createRepeater('maps', 'map map_description', __('Map locations'), __('Please add one or more map markers'));
+
+                /* add `maps` field into the field group */
+                $fg->add($field);
+
+                $this->message("Field `maps` added.");
+
+            }
+
+            /* Save the field group */
+            $fg->save();
+            $this->message("`contact-index` field group added.");
+        }
+
+        /* Fetch the template named `contact-index` */
+        $contactIndexTemplate = $this->templates->get('contact-index');
+
+        if (!$contactIndexTemplate->id) {
+            /* Create new template instance */
+            $contactIndexTemplate = new Template();
+            $contactIndexTemplate->name = 'contact-index';//Used different name other than file name
+
+            /* Set template label */
+            $contactIndexTemplate->label = 'Contact us page';
+
+            $contactIndexTemplate->fieldgroup = $fg; // add the field group
+            /*
+             *  altFilename property will accept file-name
+             *  Note: template file needs to be placed under template directory.
+             *  Give name of the template file which is under template dir.
+             */
+            $contactIndexTemplate->altFilename = 'testimonial';
+
+            $contactIndexTemplate->save();
+
+            $this->message("`contact-index` template added.");
+        }
+    }
+
+    /**
+     * Uninstall the module
+     *
+     */
+    public function ___uninstall(){
+
+        /* ======================================================================== */
+        /* Removing contact us page related templates and field group                 */
+        /* ======================================================================== */
+
+        /* Fetch contact-form field group */
+        $contactIndexFieldGroup=  $this->fieldgroups->get('contact-index');
+        /* Fetch the template named `contact-index` */
+        $contactIndexTemplate = $this->templates->get('contact-index');
+
+        if ($contactIndexTemplate->id && $contactIndexTemplate->getNumPages() > 0) {
+            /* Meaning that these template been used. So throw an exception would save our life */
+            throw new WireException("Can't uninstall because `contact-index` template been used by some pages.");
+        }else if ($contactIndexTemplate->id) {
+            /* Meaning that we can delete our template and field group. Because it was not been used. */
+            wire('templates')->delete($contactIndexTemplate);
+            $this->message("`contact-index` template removed.");
+            wire('fieldgroups')->delete($contactIndexFieldGroup);
+            $this->message("`contact-index` field group removed.");
+        }
+
+        $repeaterName = 'maps';
+//        $repeaterFieldGroupName = "repeater_$repeaterName";
+//        $repeaterMapsTemplateName = "repeater_$repeaterName";
+//
+//        /* Remove repeater field template that been created for maps field */
+//        $repeaterMapsTemplate = $this->templates->get($repeaterMapsTemplateName);
+//
+//        $mapRepeaterFieldGroup = $this->fieldgroups->get($repeaterFieldGroupName);
+//
+//
+//        if ($repeaterMapsTemplate->id && $repeaterMapsTemplate->getNumPages() > 0){
+//            throw new WireException("Can't uninstall because `{$repeaterMapsTemplateName}` template been used by some pages.");
+//        } else if ($repeaterMapsTemplate->id) {
+//            wire('templates')->delete($repeaterMapsTemplate);
+//            $this->message("`{$repeaterMapsTemplateName}` template removed.");
+//        }
+//        /* Remove repeater field group that been created for maps field */
+//
+//        if ($mapRepeaterFieldGroup->id) {
+//            wire('fieldgroups')->delete($mapRepeaterFieldGroup);
+//            $this->message("`{$repeaterFieldGroupName}` field group removed.");
+//        }
+
+
+        /* Get maps fields (Repeater) */
+        $maps = wire('fields')->get('maps');
+
+        if ($maps->id && $maps->numFieldgroups() > 0) {
+            throw new WireException("Can't remove field `maps` since it been used on some field groups.");
+        }else {
+            /* Remove field `maps` */
+            wire('fields')->delete($maps);
+            $this->message("`maps` field removed.");
+        }
+
+        /* Get google map location title field */
+        $mapLocationTitle = wire('fields')->get('google_map_location_title');
+
+        if ($mapLocationTitle->id && $mapLocationTitle->numFieldgroups() > 0) {
+            throw new WireException("Can't remove field `google_map_location_title` since it been used on some field groups.");
+        }else {
+            /* Remove field `google_map_location_title` */
+            wire('fields')->delete($mapLocationTitle);
+            $this->message("`google_map_location_title` field removed.");
+        }
+
+        /* Get the map field */
+        $map = wire('fields')->get('map');
+
+        if ($map->id && $map->numFieldgroups() > 0) {
+            throw new WireException("Can't remove field `map` since it been used on some field groups.");
+        }else {
+            /* Remove field `map` */
+            wire('fields')->delete($map);
+            $this->message("`map` field removed.");
+        }
+
+        /* Get the map description field */
+        $mapDescription = wire('fields')->get('map_description');
+
+        if ($mapDescription->id && $mapDescription->numFieldgroups() > 0) {
+            throw new WireException("Can't remove field `map_description` since it been used on some field groups.");
+        }else {
+            /* Remove field `map_description` */
+            wire('fields')->delete($mapDescription);
+            $this->message("`map` field removed.");
+        }
+    }
+
+    /**
+     * Creates a repeater field with associated fieldgroup, template, and page
+     *
+     * @param string $repeaterName The name of your repeater field
+     * @param string $repeaterFields List of field names to add to the repeater, separated by spaces
+     * @param string $repeaterLabel The label for your repeater
+     * @return Returns the new Repeater field
+     *
+     */
+    private function createRepeater($repeaterName,$repeaterFields,$repeaterLabel, $repeaterDescription = '')
+    {
+        $fieldsArray = explode(' ',$repeaterFields);
+
+        $f = new Field();
+        $f->type = $this->modules->get("FieldtypeRepeater");
+        $f->name = $repeaterName;
+        $f->label = $repeaterLabel;
+        $f->description = $repeaterDescription;
+        $f->repeaterReadyItems = 3;
+
+        //Create fieldgroup
+        $repeaterFg = new Fieldgroup();
+        $repeaterFg->name = "repeater_$repeaterName";
+
+        //Add fields to fieldgroup
+        foreach($fieldsArray as $field) {
+            $repeaterFg->append($this->fields->get($field));
+        }
+
+        $repeaterFg->save();
+
+        //Create template
+        $repeaterT = new Template();
+        $repeaterT->name = "repeater_$repeaterName";
+        $repeaterT->flags = 8;
+        $repeaterT->noChildren = 1;
+        $repeaterT->noParents = 1;
+        $repeaterT->noGlobal = 1;
+        $repeaterT->slashUrls = 1;
+        $repeaterT->fieldgroup = $repeaterFg;
+
+        $repeaterT->save();
+
+        //Setup page for the repeater - Very important
+        $repeaterPage = "for-field-{$f->id}";
+        $f->parent_id = $this->pages->get("name=$repeaterPage")->id;
+        $f->template_id = $repeaterT->id;
+        $f->repeaterReadyItems = 3;
+
+        //Now, add the fields directly to the repeater field
+        foreach($fieldsArray as $field) {
+            $f->repeaterFields = $this->fields->get($field);
+        }
+
+        $f->save();
+        return $f;
+    }
+
+    public function getRcdJsScriptLink() {
+        $scriptPath = wire('config')->urls->siteModules . __CLASS__ .'/RCDMap.js';
+        return "\n<script type='text/javascript' src='{$scriptPath}'></script>";
+    }
+
+    /**
+     * Render location markups on google maps
+     * Method will return HTML markup and java scripts
+     * Note: In order to view the map front end template should have jquery enabled
+     * in header section (Not in the footer).
+     */
+    public function renderGoogleLocationMap() {
+
+        $str = '';
+        $page = wire('page');
+
+        if (!$page->google_map_location_title && !$page->maps) return '';
+
+        $str .= "\n<div class='map-wrap'>";/* open map-wrap div */
+        if ($page->google_map_location_title){
+            $str .= "\n<h3>{$page->google_map_location_title}</h3>";
+        }
+        /* Create empty div tag for google map */
+        $str .= "<div id='map'></div>";
+
+        $str .= '<script type="text/javascript">' . "\n"; /*Open script tag*/
+        $str .= '//<![CDATA[' . "\n";
+        $str .= '$(document).ready(function(){' . "\n";
+
+        $lat = 0;$lng = 0;$zoom = 2;
+        $str .= "\nRCDMap.options.mapTypeId = google.maps.MapTypeId.ROADMAP;";
+        $str .= "\nRCDMap.options.zoom = {$zoom}";
+        $str .= "\nRCDMap.init('map', {$lat}, {$lng});";
+
+        foreach ($page->maps as $item) {
+            if(!$item->map->lat) continue;
+            $mapUrl = "http://maps.google.com/maps?q={$item->map->lat},{$item->map->lng}";
+            $str .= "\nRCDMap.addMarker('{$item->map_description}', '{$mapUrl}', {$item->map->lat}, {$item->map->lng});";
+        }
+        $str .= "RCDMap.fitToMarkers();";
+
+        $str .= "});\n"; /* Close document ready */
+        $str .=  '//]]>' . "\n";/* Close cdata section */
+        $str .= '</script>' . "\n";/* Close script tag*/
+
+        $str .= "</div>"; /* close map-wrap div */
+
+        /* Include javaScripts */
+        $str .= "<script type='text/javascript' src='https://maps.googleapis.com/maps/api/js?sensor=false'></script>";
+        $str .= $this->getRcdJsScriptLink();
+
+        return $str;
+
+    }
+}
