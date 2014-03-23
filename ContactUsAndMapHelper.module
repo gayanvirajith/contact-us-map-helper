@@ -173,7 +173,7 @@ class ContactUsAndMapHelper extends WireData implements Module, Saveable {
              *  Note: template file needs to be placed under template directory.
              *  Give name of the template file which is under template dir.
              */
-            $contactIndexTemplate->altFilename = 'testimonial';
+            $contactIndexTemplate->altFilename = 'contact';
 
             $contactIndexTemplate->save();
 
